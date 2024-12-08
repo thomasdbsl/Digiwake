@@ -1,0 +1,582 @@
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <U8glib.h>
+#include <Adafruit_SSD1306.h>
+#include <LedControl.h>
+#include <RTClib.h>
+#include <EEPROM.h>
+
+const int nb_choix = 6;          // nb de choix dans le menu
+const int taille = 20;           // taille pour le nom des menu
+int Bouton_haut_cliquer = 0;     // indique si le bouton haut a ete cliquer
+int Bouton_choix_cliquer = 0;    // indique si le bouton choix a ete cliquer
+int Bouton_bas_cliquer = 0;      // indique si le bouton bas a ete cliquer
+int choix_select = 0;            // indique le choix fait
+int sous_choix_select = 0;       // indique le sous choix fait
+int choisit_avant;               // inqique la selection precedante 
+int choisit_apres;               // indique la prochaine selection
+int Bouton_retour_cliquer = 0;   // indique si le bouton retour a ete clique
+int actuel = 0;                  // indique si on est dans le menu ou dans un sous menu
+int sous_menu_actuel = 0;        // indique dans quel sous menu on est
+bool mode_editer_heure = false;  // indique si on est en mode d'édition de l'heure
+bool editer_heures = true;       // indique si on édite les heures ou les minutes
+int heure_modifiee = 0;          // heure quand on est en cours d'édition
+int minute_modifiee = 0;         // minute quand on est en cours d'édition
+bool format_24h = true;          // true pour format 24h et false pour format 12h
+int heure_reveil = 7;            // heure initiale du réveil
+int minute_reveil = 0;           // minutes initiales du réveil
+bool reveil_active = false;      // true pour ON et false pour OFF
+bool buzzer_en_cours = false;    // indique si le buzzer est en train de sonner
+unsigned long debutMelodie = 0;  // chronomètre pour les 10 secondes de sonneries
+int melodie_choisie = 1;         // 1 pour Mélodie 1, 2 pour Mélodie 
+unsigned long derniere_note = 0; // temps de la dernière note jouée
+unsigned long debut_buzzer = 0;  // moment où le buzzer a commencé a sonner
+bool reveil_deja_sonne = false;  // indique si le réveil a déjà sonné pour l'heure
+int bouton_stop_cliquer = 0;     // indique si on a appuyer sur le bouton stop
+
+#define NB_NOTES_MAX 10 // nombre max de notes par melodies
+#define ADRESSE_MELODIE_1 0 // adresse de la melodie 1
+#define ADRESSE_MELODIE_2 (sizeof(Note) * NB_NOTES_MAX) // adresse de la melodie 2
+#define Bouton_haut 7   // pin pour bouton haut
+#define Bouton_choix 6  // pin pour bouton choix 
+#define Bouton_bas 5    // pin pour bouton bas
+#define Bouton_retour 4 // pin pour bouton retour
+#define bouton_stop 9   // pin du bouton stop (pour stopper le reveil)
+#define buzzer 3        // pin du buzzer
+#define cap_trig 2      // pin capteur trig 
+#define cap_echo 12     // pin du capteur echo
+
+U8GLIB_SSD1306_128X64 u8g(U8G_I2C_OPT_DEV_0 | U8G_I2C_OPT_NO_ACK | U8G_I2C_OPT_FAST);
+
+// initialisation des MAX7219
+LedControl lc = LedControl(11, 13, 10, 4); 
+
+// initialisation module RTC
+RTC_DS1307 rtc;
+
+// codes du rectangles de selection
+const unsigned char rectangle_select[] PROGMEM = {
+    0x1f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xe0,
+    0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10,
+    0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08,
+    0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08,
+    0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08,
+    0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08,
+    0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08,
+    0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08,
+    0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08,
+    0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08,
+    0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08,
+    0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08,
+    0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08,
+    0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08,
+    0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08,
+    0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08,
+    0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08,
+    0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08,
+    0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10,
+    0x1f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xe0};
+
+// codes des chiffres des matrices
+const byte chiffres[10][8] = {
+    {0x3E, 0x51, 0x49, 0x45, 0x3E, 0x00, 0x00, 0x00}, // chiffre 0
+    {0x00, 0x42, 0x7F, 0x40, 0x00, 0x00, 0x00, 0x00}, // 1
+    {0x62, 0x51, 0x49, 0x49, 0x46, 0x00, 0x00, 0x00}, // 2
+    {0x22, 0x41, 0x49, 0x49, 0x36, 0x00, 0x00, 0x00}, // 3
+    {0x18, 0x14, 0x12, 0x7F, 0x10, 0x00, 0x00, 0x00}, // 4
+    {0x27, 0x45, 0x45, 0x45, 0x39, 0x00, 0x00, 0x00}, // 5
+    {0x3E, 0x49, 0x49, 0x49, 0x30, 0x00, 0x00, 0x00}, // 6
+    {0x01, 0x01, 0x71, 0x0D, 0x03, 0x00, 0x00, 0x00}, // 7
+    {0x36, 0x49, 0x49, 0x49, 0x36, 0x00, 0x00, 0x00}, // 8
+    {0x06, 0x49, 0x49, 0x29, 0x1E, 0x00, 0x00, 0x00}  // 9
+};
+
+char menu_choix[nb_choix][taille] = { // menus
+    {"Horloge"},
+    {"Alarme"},
+    {"Reveil ON/OFF"},
+    {"Heure reveil"},
+    {"Duree alarme"},
+    {"Format AM/PM"}};
+
+// sous menus
+const int nb_sous_choix[nb_choix] = {1, 2, 2, 1, 2, 2};        // nb sous choix par menu
+char sous_menu_0[][taille] = {{"Modif. heure"}};               // sous choix horloge
+char sous_menu_1[][taille] = {{"Melodie 1"}, {"Melodie 2"}};   // sous choix sonnerie
+char sous_menu_2[][taille] = {{"Activer"}, {"Desactiver"}};    // sous choix reveil
+char sous_menu_3[][taille] = {{"Modif. reveil"}};              // sous choix heure réveil
+char sous_menu_4[][taille] = {{"L'alarme dure 10s"}};          // sous choix durée réveil
+char sous_menu_5[][taille] = {{"Format 12h"}, {"Format 24h"}}; // sous choix format
+
+char *sous_menus[] = {(char *)sous_menu_0, (char *)sous_menu_1, (char *)sous_menu_2,
+                      (char *)sous_menu_3, (char *)sous_menu_4, (char *)sous_menu_5};
+
+// structure pour les notes (les frequences) et les durées de ces notes
+struct Note
+{
+  uint16_t frequence; // en Hz
+  uint16_t duree;     // en ms
+};
+
+// memoire temp
+Note melodieActive[NB_NOTES_MAX];
+int nbNotesActive = 0;
+
+// charger la melodie de la memoire EEPROM
+void chargerMelodieEEPROM(int adresseDebut, Note *melodie, int &nbNotes)
+{
+  nbNotes = 0;
+  for (int i = 0; i < NB_NOTES_MAX; i++)
+  {
+    EEPROM.get(adresseDebut + i * sizeof(Note), melodie[i]);
+    if (melodie[i].frequence == 0 && melodie[i].duree == 0)
+    {
+      break;
+    }
+    nbNotes++;
+  }
+}
+
+// charger la mélodie en fonction du du choix de l'utilisateur
+void chargerMelodieActive()
+{
+  if (melodie_choisie == 1)
+  {
+    chargerMelodieEEPROM(ADRESSE_MELODIE_1, melodieActive, nbNotesActive);
+  }
+  else if (melodie_choisie == 2)
+  {
+    chargerMelodieEEPROM(ADRESSE_MELODIE_2, melodieActive, nbNotesActive);
+  }
+}
+
+// jouer melodie depuis la memoire active
+void jouerMelodieEEPROM()
+{
+  unsigned long temps_ecoule = millis() - debut_buzzer;
+  int index = (temps_ecoule / melodieActive[0].duree) % nbNotesActive;
+  tone(buzzer, melodieActive[index].frequence);
+}
+
+// sauvegarde melodies dans la memoire EEPROM
+void sauvegarderMelodieEEPROM(int adresseDebut, Note *melodie, int nbNotes)
+{
+  for (int i = 0; i < nbNotes; i++)
+  {
+    EEPROM.put(adresseDebut + i * sizeof(Note), melodie[i]);
+  }
+}
+
+// initialisation de la memoire EEPROM (melodies)
+void initialiserEEPROM()
+{
+  Note melodie1[NB_NOTES_MAX] = {{1000, 250}, {1200, 250}, {1400, 250}, {1600, 250}};
+  Note melodie2[NB_NOTES_MAX] = {{800, 300}, {1000, 300}, {1200, 300}, {1400, 300}};
+  sauvegarderMelodieEEPROM(ADRESSE_MELODIE_1, melodie1, NB_NOTES_MAX);
+  sauvegarderMelodieEEPROM(ADRESSE_MELODIE_2, melodie2, NB_NOTES_MAX);
+}
+
+// problemes d'affichage matrices alors rotation
+void afficherChiffre(int matrice, int chiffre)
+{
+  for (int col = 0; col < 8; col++)
+  {
+    byte colonneOriginale = chiffres[chiffre][col];
+    byte colonneMiroir = 0;
+
+    // rotation miroir
+    for (int bit = 0; bit < 8; bit++)
+    {
+      if (colonneOriginale & (1 << bit))
+      {
+        colonneMiroir |= (1 << (7 - bit));
+      }
+    }
+
+    lc.setColumn(matrice, col, colonneMiroir);
+  }
+}
+
+// les deux points sur les matrices
+void afficherDeuxPoints(bool etat)
+{
+  // Point 1 : ligne 5, colonne 0
+  lc.setLed(2, 5, 6, etat);
+  // Point 2 : ligne 6, colonne 0
+  lc.setLed(2, 2, 6, etat);
+}
+
+// initialisations des matrices leds
+void initialiserMatrices()
+{
+  for (int i = 0; i < 4; i++)
+  {
+    lc.shutdown(i, false); // mdoe eco energie OFF
+    lc.setIntensity(i, 10); // luminosité (egale a 10 dans notre cas)
+    lc.clearDisplay(i);    // Effacer l'affichage initial
+  }
+}
+
+// initialisation RTC
+void initialiserRTC()
+{
+  if (!rtc.begin())
+  {
+    while (1)
+      ; // si RTC pas detecter alors on bloque
+  }
+
+  if (!rtc.isrunning())
+  {
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  }
+}
+
+void afficherHeureMatrices(int heure, int minute)
+{
+  int heureAffichee = heure;
+
+  if (!format_24h)
+  { // cas quand le format est AM
+    if (heure == 0)
+    {
+      heureAffichee = 12; // s'il est minuit alors on affiche 12h
+    }
+    else if (heure > 12)
+    {
+      heureAffichee = heure - 12; // conversion de l'heure en format 12h
+    }
+  }
+
+  int heureDizaines = heureAffichee / 10;
+  int heureUnites = heureAffichee % 10;
+  int minuteDizaines = minute / 10;
+  int minuteUnites = minute % 10;
+
+  afficherChiffre(0, minuteUnites);   // matrice 1 : unités des minutes
+  afficherChiffre(1, minuteDizaines); // matrice 2 : dizaines des minutes
+  afficherChiffre(2, heureUnites);    // matrice 3 : unités des heures
+  afficherChiffre(3, heureDizaines);  // matrice 4 : dizaines des heures
+}
+
+long lireDistance()
+{
+  digitalWrite(cap_trig, LOW);
+  delayMicroseconds(2);
+  digitalWrite(cap_trig, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(cap_trig, LOW);
+
+  long duree = pulseIn(cap_echo, HIGH, 20000); // TO a 20ms
+  if (duree == 0)
+  {
+    return 999; // si aucun signal recu alors distance invalide
+  }
+
+  long distance = duree * 0.034 / 2; // conversion de la distance en cm
+  return distance;
+}
+
+void setup()
+{
+  u8g.setColorIndex(1); // couleur blanche
+  Serial.begin(9600); 
+  initialiserEEPROM();                  // initialiser l'EEPROM
+  initialiserMatrices();                // initialiser les matrices
+  initialiserRTC();                     // initialiser le RTC
+  pinMode(Bouton_haut, INPUT_PULLUP);   // configurer le bouton haut
+  pinMode(Bouton_choix, INPUT_PULLUP);  // configurer le bouton choix
+  pinMode(Bouton_bas, INPUT_PULLUP);    // configurer le bouton bas
+  pinMode(Bouton_retour, INPUT_PULLUP); // configurer le bouton retour
+  pinMode(bouton_stop, INPUT_PULLUP);   // configurer le bouton stop
+  pinMode(cap_trig, OUTPUT); // def broche trig comme sortie
+  pinMode(cap_echo, INPUT);  // def broche echo comme entrée
+  pinMode(buzzer, OUTPUT);   // def broche buzzer comme sortie
+  digitalWrite(buzzer, LOW); // desactiver le buzzer au demarrage
+}
+
+void loop()
+{
+  DateTime now = rtc.now();
+  int heureActuelle = now.hour();
+  int minuteActuelle = now.minute();
+
+  if (format_24h)
+  {
+    afficherHeureMatrices(heureActuelle, minuteActuelle);
+  }
+  else
+  {
+    int heure12h = (heureActuelle % 12 == 0) ? 12 : heureActuelle % 12;
+    afficherHeureMatrices(heure12h, minuteActuelle);
+  }
+
+  // réveil
+  if (reveil_active && heureActuelle == heure_reveil && minuteActuelle == minute_reveil && !buzzer_en_cours && !reveil_deja_sonne)
+  {
+    buzzer_en_cours = true;
+    reveil_deja_sonne = true;
+    debut_buzzer = millis();
+    chargerMelodieActive();
+  }
+
+  // jouer la mélodie
+  if (buzzer_en_cours)
+  {
+    unsigned long temps_ecoule = millis() - debut_buzzer;
+
+    // Si le bouton stop est pressé
+    if (digitalRead(bouton_stop) == LOW && bouton_stop_cliquer == 0)
+    {
+      bouton_stop_cliquer = 1;
+      buzzer_en_cours = false;
+      noTone(buzzer);
+    }
+    // Si un objet est détecté à moins de 5 cm, réinitialiser le décompte
+    else if (lireDistance() <= 5)
+    {
+      debut_buzzer = millis(); // Réinitialiser le décompte
+      temps_ecoule = 0;        // Remettre à zéro pour éviter tout conflit
+    }
+    // Sinon, continuer à jouer la mélodie tant que 10 secondes ne sont pas écoulées
+    else if (temps_ecoule < 10000)
+    {
+      jouerMelodieEEPROM();
+    }
+    // Arrêter après 10 secondes
+    else
+    {
+      buzzer_en_cours = false;
+      noTone(buzzer);
+    }
+  }
+
+  // Réinitialiser l'état du bouton stop après relâchement
+  if (digitalRead(bouton_stop) == HIGH && bouton_stop_cliquer == 1)
+  {
+    bouton_stop_cliquer = 0;
+  }
+
+  if (heureActuelle != heure_reveil || minuteActuelle != minute_reveil)
+  {
+    reveil_deja_sonne = false;
+  }
+
+  // Gestion du bouton stop
+  if (buzzer_en_cours)
+  {
+
+    // Si le bouton stop est pressé
+    if (digitalRead(bouton_stop) == LOW && bouton_stop_cliquer == 0)
+    {
+      bouton_stop_cliquer = 1; // Enregistrer que le bouton a été pressé
+      buzzer_en_cours = false; // Désactiver le buzzer
+      noTone(buzzer);          // Arrêter immédiatement le buzzer
+    }
+  }
+  // Réinitialiser l'état du bouton stop après relâchement
+  if (digitalRead(bouton_stop) == HIGH && bouton_stop_cliquer == 1)
+  {
+    bouton_stop_cliquer = 0; // Réinitialiser pour détecter un nouveau clic
+  }
+
+  // Gestion du bouton "Retour"
+  if ((digitalRead(Bouton_retour) == LOW) && (Bouton_retour_cliquer == 0))
+  {
+    Bouton_retour_cliquer = 1;
+    if (mode_editer_heure)
+    {
+      mode_editer_heure = false; // Quitter le mode édition
+      actuel = 0;                // Revenir au menu principal
+    }
+    else if (actuel > 0)
+    {
+      actuel--; // Revenir à l'état précédent (menu principal ou sous-menu)
+    }
+  }
+  if ((digitalRead(Bouton_retour) == HIGH) && (Bouton_retour_cliquer == 1))
+  {
+    Bouton_retour_cliquer = 0;
+  }
+
+  // Gestion du menu principal
+  if (actuel == 0 && !mode_editer_heure)
+  {
+    if ((digitalRead(Bouton_haut) == LOW) && (Bouton_haut_cliquer == 0))
+    {
+      choix_select = (choix_select - 1 + nb_choix) % nb_choix;
+      Bouton_haut_cliquer = 1;
+    }
+    if ((digitalRead(Bouton_bas) == LOW) && (Bouton_bas_cliquer == 0))
+    {
+      choix_select = (choix_select + 1) % nb_choix;
+      Bouton_bas_cliquer = 1;
+    }
+    if ((digitalRead(Bouton_choix) == LOW) && (Bouton_choix_cliquer == 0))
+    {
+      actuel = 1; // Aller au sous-menu
+      sous_menu_actuel = choix_select;
+      sous_choix_select = 0; // Reset du sous-menu
+      Bouton_choix_cliquer = 1;
+    }
+  }
+  else if (actuel == 1)
+  {
+    if (mode_editer_heure)
+    {
+      // Gestion de l'édition d'heure (Heure ou Heure Réveil)
+      if ((digitalRead(Bouton_haut) == LOW) && (Bouton_haut_cliquer == 0))
+      {
+        heure_modifiee = (heure_modifiee + 1) % 24;
+        Bouton_haut_cliquer = 1;
+      }
+      if ((digitalRead(Bouton_bas) == LOW) && (Bouton_bas_cliquer == 0))
+      {
+        minute_modifiee = (minute_modifiee + 1) % 60;
+        Bouton_bas_cliquer = 1;
+      }
+      if ((digitalRead(Bouton_choix) == LOW) && (Bouton_choix_cliquer == 0))
+      {
+        if (sous_menu_actuel == 0)
+        { // Sous-menu "Heure"
+          rtc.adjust(DateTime(now.year(), now.month(), now.day(), heure_modifiee, minute_modifiee, 0));
+        }
+        else if (sous_menu_actuel == 3)
+        { // Sous-menu "Heure Réveil"
+          heure_reveil = heure_modifiee;
+          minute_reveil = minute_modifiee;
+        }
+        mode_editer_heure = false; // Quitter le mode édition
+        actuel = 0;                // Revenir au menu principal
+        Bouton_choix_cliquer = 1;
+      }
+    }
+    else
+    {
+      // Gestion normale des sous-menus
+      int nb_choix_sous_menu = nb_sous_choix[sous_menu_actuel];
+
+      if ((digitalRead(Bouton_haut) == LOW) && (Bouton_haut_cliquer == 0))
+      {
+        sous_choix_select = (sous_choix_select - 1 + nb_choix_sous_menu) % nb_choix_sous_menu;
+        Bouton_haut_cliquer = 1;
+      }
+      if ((digitalRead(Bouton_bas) == LOW) && (Bouton_bas_cliquer == 0))
+      {
+        sous_choix_select = (sous_choix_select + 1) % nb_choix_sous_menu;
+        Bouton_bas_cliquer = 1;
+      }
+
+      if ((digitalRead(Bouton_choix) == LOW) && (Bouton_choix_cliquer == 0))
+      {
+        if (sous_menu_actuel == 5)
+        { // Sous-menu "Format"
+          if (sous_choix_select == 0)
+          {
+            format_24h = false; // 12h
+          }
+          else if (sous_choix_select == 1)
+          {
+            format_24h = true; // 24h
+          }
+        }
+        else if (sous_menu_actuel == 2)
+        { // Sous-menu "Réveil"
+          if (sous_choix_select == 0)
+          {
+            reveil_active = true; // Activer le réveil
+          }
+          else if (sous_choix_select == 1)
+          {
+            reveil_active = false; // Désactiver le réveil
+          }
+        }
+        else if (sous_menu_actuel == 0 || sous_menu_actuel == 3)
+        {
+          // Activer le mode d'édition pour "Heure" ou "Heure Réveil"
+          mode_editer_heure = true;
+          heure_modifiee = (sous_menu_actuel == 0) ? now.hour() : heure_reveil;
+          minute_modifiee = (sous_menu_actuel == 0) ? now.minute() : minute_reveil;
+        }
+        else if (sous_menu_actuel == 1)
+        {                                          // Sous-menu "Alarme"
+          melodie_choisie = sous_choix_select + 1; // Choisir la mélodie 1 ou 2
+        }
+        Bouton_choix_cliquer = 1;
+      }
+    }
+  }
+
+  // Réinitialiser les clics
+  if ((digitalRead(Bouton_haut) == HIGH) && (Bouton_haut_cliquer == 1))
+    Bouton_haut_cliquer = 0;
+  if ((digitalRead(Bouton_bas) == HIGH) && (Bouton_bas_cliquer == 1))
+    Bouton_bas_cliquer = 0;
+  if ((digitalRead(Bouton_choix) == HIGH) && (Bouton_choix_cliquer == 1))
+    Bouton_choix_cliquer = 0;
+  if ((digitalRead(Bouton_retour) == HIGH) && (Bouton_retour_cliquer == 1))
+    Bouton_retour_cliquer = 0;
+
+  // Affichage
+  u8g.firstPage();
+  do
+  {
+    if (mode_editer_heure)
+    {
+      char buffer[6];
+      sprintf(buffer, "%02d:%02d", heure_modifiee, minute_modifiee);
+      u8g.drawStr(30, 30, buffer);
+    }
+    else if (actuel == 0)
+    { // Menu principal
+      u8g.drawBitmapP(15, 21, 113 / 8, 20, rectangle_select);
+      u8g.setFont(u8g_font_7x14);
+      u8g.drawStr(25, 15, menu_choix[(choix_select - 1 + nb_choix) % nb_choix]);
+      u8g.setFont(u8g_font_7x14B);
+      u8g.drawStr(25, 35, menu_choix[choix_select]);
+      u8g.setFont(u8g_font_7x14);
+      u8g.drawStr(25, 55, menu_choix[(choix_select + 1) % nb_choix]);
+
+      // Affichage de l'état du réveil dans le coin supérieur droit
+      u8g.setFont(u8g_font_6x10); // Police plus petite pour l'état
+      if (reveil_active)
+      {
+        u8g.drawStr(0, 10, "ON"); // Si réveil activé, afficher "ON"
+      }
+      else
+      {
+        u8g.drawStr(0, 10, "OFF"); // Si réveil désactivé, afficher "OFF"
+      }
+
+      // Affichage de "AM" ou "PM" dans le coin inférieur gauche en fonction du format choisi
+      u8g.setFont(u8g_font_6x10); // Police petite pour l'indicateur
+      if (!format_24h)
+      {
+        u8g.drawStr(0, 60, "AM"); // Affiche AM/PM si le format est 12h
+      }
+      else
+      {
+        u8g.drawStr(0, 60, "PM"); // Affiche 24H si le format est 24h
+      }
+    }
+    else if (actuel == 1)
+    { // Sous-menu
+      char(*sous_menu)[taille] = (char(*)[taille])sous_menus[sous_menu_actuel];
+      int nb_choix_sous_menu = nb_sous_choix[sous_menu_actuel];
+      u8g.drawBitmapP(15, 21, 113 / 8, 20, rectangle_select);
+
+      if (nb_choix_sous_menu == 1)
+      {
+        u8g.setFont(u8g_font_7x14B);
+        u8g.drawStr(25, 35, sous_menu[0]);
+      }
+      else if (nb_choix_sous_menu == 2)
+      {
+        u8g.setFont(u8g_font_7x14);
+        u8g.drawStr(25, 15, sous_menu[(sous_choix_select == 0) ? 1 : 0]);
+        u8g.setFont(u8g_font_7x14B);
+        u8g.drawStr(25, 35, sous_menu[sous_choix_select]);
+      }
+    }
+  } while (u8g.nextPage());
+}

@@ -6,50 +6,58 @@
 #include <RTClib.h>
 #include <EEPROM.h>
 
-const int nb_choix = 6;          // nb de choix dans le menu
-const int taille = 20;           // taille pour le nom des menu
-int Bouton_haut_cliquer = 0;     // indique si le bouton haut a ete cliquer
-int Bouton_choix_cliquer = 0;    // indique si le bouton choix a ete cliquer
-int Bouton_bas_cliquer = 0;      // indique si le bouton bas a ete cliquer
-int choix_select = 0;            // indique le choix fait
-int sous_choix_select = 0;       // indique le sous choix fait
-int choisit_avant;               // inqique la selection precedante 
-int choisit_apres;               // indique la prochaine selection
-int Bouton_retour_cliquer = 0;   // indique si le bouton retour a ete clique
-int actuel = 0;                  // indique si on est dans le menu ou dans un sous menu
-int sous_menu_actuel = 0;        // indique dans quel sous menu on est
-bool mode_editer_heure = false;  // indique si on est en mode d'édition de l'heure
-bool editer_heures = true;       // indique si on édite les heures ou les minutes
-int heure_modifiee = 0;          // heure quand on est en cours d'édition
-int minute_modifiee = 0;         // minute quand on est en cours d'édition
-bool format_24h = true;          // true pour format 24h et false pour format 12h
-int heure_reveil = 7;            // heure initiale du réveil
-int minute_reveil = 0;           // minutes initiales du réveil
-bool reveil_active = false;      // true pour ON et false pour OFF
-bool buzzer_en_cours = false;    // indique si le buzzer est en train de sonner
-unsigned long debutMelodie = 0;  // chronomètre pour les 10 secondes de sonneries
-int melodie_choisie = 1;         // 1 pour Mélodie 1, 2 pour Mélodie 
-unsigned long derniere_note = 0; // temps de la dernière note jouée
-unsigned long debut_buzzer = 0;  // moment où le buzzer a commencé a sonner
-bool reveil_deja_sonne = false;  // indique si le réveil a déjà sonné pour l'heure
-int bouton_stop_cliquer = 0;     // indique si on a appuyer sur le bouton stop
+const int nb_choix = 6;                            // nb de choix dans le menu
+const int taille = 20;                             // taille pour le nom des menu
+int Bouton_haut_cliquer = 0;                       // indique si le bouton haut a ete cliquer
+int Bouton_choix_cliquer = 0;                      // indique si le bouton choix a ete cliquer
+int Bouton_bas_cliquer = 0;                        // indique si le bouton bas a ete cliquer
+int choix_select = 0;                              // indique le choix fait
+int sous_choix_select = 0;                         // indique le sous choix fait
+int choisit_avant;                                 // inqique la selection precedante
+int choisit_apres;                                 // indique la prochaine selection
+int Bouton_retour_cliquer = 0;                     // indique si le bouton retour a ete clique
+int actuel = 0;                                    // indique si on est dans le menu ou dans un sous menu
+int sous_menu_actuel = 0;                          // indique dans quel sous menu on est
+bool mode_editer_heure = false;                    // indique si on est en mode d'édition de l'heure
+bool editer_heures = true;                         // indique si on édite les heures ou les minutes
+int heure_modifiee = 0;                            // heure quand on est en cours d'édition
+int minute_modifiee = 0;                           // minute quand on est en cours d'édition
+bool format_24h = true;                            // true pour format 24h et false pour format 12h
+int heure_reveil = 7;                              // heure initiale du réveil
+int minute_reveil = 0;                             // minutes initiales du réveil
+bool reveil_active = false;                        // true pour ON et false pour OFF
+bool buzzer_en_cours = false;                      // indique si le buzzer est en train de sonner
+unsigned long debutMelodie = 0;                    // chronomètre pour les 10 secondes de sonneries
+int melodie_choisie = 1;                           // 1 pour Mélodie 1, 2 pour Mélodie
+unsigned long derniere_note = 0;                   // temps de la dernière note jouée
+unsigned long debut_buzzer = 0;                    // moment où le buzzer a commencé a sonner
+bool reveil_deja_sonne = false;                    // indique si le réveil a déjà sonné pour l'heure
+int bouton_stop_cliquer = 0;                       // indique si on a appuyer sur le bouton stop
+bool alarme_reportee = false;                      // Indique si l'alarme a été repoussée par le capteur
+int duree_snooze = 1;                              // Durée par défaut en minutes (1 minute)
+bool led_etat = false;                             // État actuel de la LED (allumée ou éteinte)
+unsigned long dernier_clignotement = 0;            // Dernier moment où la LED a changé d'état
+const unsigned long intervalle_clignotement = 300; // Intervalle entre les clignotements (en ms)
+unsigned long dernierClignotement = 0;             // Chronomètre pour le clignotement
+bool etatPoints = false;                           // État actuel des deux points
 
-#define NB_NOTES_MAX 10 // nombre max de notes par melodies
-#define ADRESSE_MELODIE_1 0 // adresse de la melodie 1
+#define NB_NOTES_MAX 10                                 // nombre max de notes par melodies
+#define ADRESSE_MELODIE_1 0                             // adresse de la melodie 1
 #define ADRESSE_MELODIE_2 (sizeof(Note) * NB_NOTES_MAX) // adresse de la melodie 2
-#define Bouton_haut 7   // pin pour bouton haut
-#define Bouton_choix 6  // pin pour bouton choix 
-#define Bouton_bas 5    // pin pour bouton bas
-#define Bouton_retour 4 // pin pour bouton retour
-#define bouton_stop 9   // pin du bouton stop (pour stopper le reveil)
-#define buzzer 3        // pin du buzzer
-#define cap_trig 2      // pin capteur trig 
-#define cap_echo 12     // pin du capteur echo
+#define Bouton_haut 7                                   // pin pour bouton haut
+#define Bouton_choix 6                                  // pin pour bouton choix
+#define Bouton_bas 5                                    // pin pour bouton bas
+#define Bouton_retour 4                                 // pin pour bouton retour
+#define bouton_stop 9                                   // pin du bouton stop (pour stopper le reveil)
+#define buzzer 3                                        // pin du buzzer
+#define cap_trig 2                                      // pin capteur trig
+#define cap_echo 12                                     // pin du capteur echo
+#define LED_PIN 8                                       // Broche où est connectée la LED
 
 U8GLIB_SSD1306_128X64 u8g(U8G_I2C_OPT_DEV_0 | U8G_I2C_OPT_NO_ACK | U8G_I2C_OPT_FAST);
 
 // initialisation des MAX7219
-LedControl lc = LedControl(11, 13, 10, 4); 
+LedControl lc = LedControl(11, 13, 10, 4);
 
 // initialisation module RTC
 RTC_DS1307 rtc;
@@ -93,20 +101,20 @@ const byte chiffres[10][8] = {
 
 char menu_choix[nb_choix][taille] = { // menus
     {"Horloge"},
-    {"Alarme"},
+    {"Sonnerie"},
     {"Reveil ON/OFF"},
     {"Heure reveil"},
-    {"Duree alarme"},
+    {"Temps snooze"},
     {"Format AM/PM"}};
 
 // sous menus
-const int nb_sous_choix[nb_choix] = {1, 2, 2, 1, 2, 2};        // nb sous choix par menu
-char sous_menu_0[][taille] = {{"Modif. heure"}};               // sous choix horloge
-char sous_menu_1[][taille] = {{"Melodie 1"}, {"Melodie 2"}};   // sous choix sonnerie
-char sous_menu_2[][taille] = {{"Activer"}, {"Desactiver"}};    // sous choix reveil
-char sous_menu_3[][taille] = {{"Modif. reveil"}};              // sous choix heure réveil
-char sous_menu_4[][taille] = {{"L'alarme dure 10s"}};          // sous choix durée réveil
-char sous_menu_5[][taille] = {{"Format 12h"}, {"Format 24h"}}; // sous choix format
+const int nb_sous_choix[nb_choix] = {1, 2, 2, 1, 2, 2};              // nb sous choix par menu
+char sous_menu_0[][taille] = {{"Modif. heure"}};                     // sous choix horloge
+char sous_menu_1[][taille] = {{"Melodie 1"}, {"Melodie 2"}};         // sous choix sonnerie
+char sous_menu_2[][taille] = {{"Activer"}, {"Desactiver"}};          // sous choix reveil
+char sous_menu_3[][taille] = {{"Modif. reveil"}};                    // sous choix heure réveil
+char sous_menu_4[][taille] = {{"Snooze = 1min"}, {"Snooze = 2min"}}; // sous choix durée réveil
+char sous_menu_5[][taille] = {{"Format 12h"}, {"Format 24h"}};       // sous choix format
 
 char *sous_menus[] = {(char *)sous_menu_0, (char *)sous_menu_1, (char *)sous_menu_2,
                       (char *)sous_menu_3, (char *)sous_menu_4, (char *)sous_menu_5};
@@ -206,14 +214,30 @@ void afficherDeuxPoints(bool etat)
   lc.setLed(2, 2, 6, etat);
 }
 
+void gererClignotementDeuxPoints()
+{
+  unsigned long maintenant = millis();
+
+  // Alterner l'état toutes les 500 ms (0.5 seconde)
+  if (maintenant - dernierClignotement >= 500)
+  {
+    dernierClignotement += 500;       // Ajoute précisément 500 ms
+    dernierClignotement = maintenant; // Réinitialiser le chronomètre
+    etatPoints = !etatPoints;         // Alterner l'état
+
+    // Mettre à jour l'affichage des deux points
+    afficherDeuxPoints(etatPoints);
+  }
+}
+
 // initialisations des matrices leds
 void initialiserMatrices()
 {
   for (int i = 0; i < 4; i++)
   {
-    lc.shutdown(i, false); // mdoe eco energie OFF
+    lc.shutdown(i, false);  // mdoe eco energie OFF
     lc.setIntensity(i, 10); // luminosité (egale a 10 dans notre cas)
-    lc.clearDisplay(i);    // Effacer l'affichage initial
+    lc.clearDisplay(i);     // Effacer l'affichage initial
   }
 }
 
@@ -280,7 +304,7 @@ long lireDistance()
 void setup()
 {
   u8g.setColorIndex(1); // couleur blanche
-  Serial.begin(9600); 
+  Serial.begin(9600);
   initialiserEEPROM();                  // initialiser l'EEPROM
   initialiserMatrices();                // initialiser les matrices
   initialiserRTC();                     // initialiser le RTC
@@ -289,10 +313,12 @@ void setup()
   pinMode(Bouton_bas, INPUT_PULLUP);    // configurer le bouton bas
   pinMode(Bouton_retour, INPUT_PULLUP); // configurer le bouton retour
   pinMode(bouton_stop, INPUT_PULLUP);   // configurer le bouton stop
-  pinMode(cap_trig, OUTPUT); // def broche trig comme sortie
-  pinMode(cap_echo, INPUT);  // def broche echo comme entrée
-  pinMode(buzzer, OUTPUT);   // def broche buzzer comme sortie
-  digitalWrite(buzzer, LOW); // desactiver le buzzer au demarrage
+  pinMode(LED_PIN, OUTPUT);             // Configurer la broche LED comme sortie
+  digitalWrite(LED_PIN, LOW);           // Assurer que la LED est éteinte au démarrage
+  pinMode(cap_trig, OUTPUT);            // def broche trig comme sortie
+  pinMode(cap_echo, INPUT);             // def broche echo comme entrée
+  pinMode(buzzer, OUTPUT);              // def broche buzzer comme sortie
+  digitalWrite(buzzer, LOW);            // desactiver le buzzer au demarrage
 }
 
 void loop()
@@ -300,6 +326,9 @@ void loop()
   DateTime now = rtc.now();
   int heureActuelle = now.hour();
   int minuteActuelle = now.minute();
+
+  // Gérer le clignotement des deux points
+  gererClignotementDeuxPoints();
 
   if (format_24h)
   {
@@ -321,9 +350,19 @@ void loop()
   }
 
   // jouer la mélodie
+  // Jouer la mélodie
   if (buzzer_en_cours)
   {
     unsigned long temps_ecoule = millis() - debut_buzzer;
+    unsigned long maintenant = millis();
+
+    // Gestion du clignotement de la LED
+    if (maintenant - dernier_clignotement >= intervalle_clignotement)
+    {
+      dernier_clignotement = maintenant;
+      led_etat = !led_etat;            // Inverser l'état de la LED
+      digitalWrite(LED_PIN, led_etat); // Mettre à jour l'état de la LED
+    }
 
     // Si le bouton stop est pressé
     if (digitalRead(bouton_stop) == LOW && bouton_stop_cliquer == 0)
@@ -331,14 +370,17 @@ void loop()
       bouton_stop_cliquer = 1;
       buzzer_en_cours = false;
       noTone(buzzer);
+      digitalWrite(LED_PIN, LOW); // Éteindre la LED
     }
-    // Si un objet est détecté à moins de 5 cm, réinitialiser le décompte
+    // Si un objet est détecté à moins de 5 cm, repousser l'alarme d'une minute
     else if (lireDistance() <= 5)
     {
-      debut_buzzer = millis(); // Réinitialiser le décompte
-      temps_ecoule = 0;        // Remettre à zéro pour éviter tout conflit
+      buzzer_en_cours = false;
+      alarme_reportee = true; // Indiquer que l'alarme a été repoussée
+      noTone(buzzer);
+      digitalWrite(LED_PIN, LOW); // Éteindre la LED
     }
-    // Sinon, continuer à jouer la mélodie tant que 10 secondes ne sont pas écoulées
+    // Sinon, continuer jusqu'à 10 secondes
     else if (temps_ecoule < 10000)
     {
       jouerMelodieEEPROM();
@@ -348,6 +390,7 @@ void loop()
     {
       buzzer_en_cours = false;
       noTone(buzzer);
+      digitalWrite(LED_PIN, LOW); // Éteindre la LED
     }
   }
 
@@ -355,6 +398,13 @@ void loop()
   if (digitalRead(bouton_stop) == HIGH && bouton_stop_cliquer == 1)
   {
     bouton_stop_cliquer = 0;
+  }
+
+  // Si l'alarme a été repoussée, mettre à jour l'heure de l'alarme
+  if (alarme_reportee)
+  {
+    alarme_reportee = false;                  // Réinitialiser l'état
+    minute_reveil = (minute_reveil + 1) % 60; // Ajouter 1 minute
   }
 
   if (heureActuelle != heure_reveil || minuteActuelle != minute_reveil)
@@ -478,6 +528,17 @@ void loop()
           else if (sous_choix_select == 1)
           {
             format_24h = true; // 24h
+          }
+        }
+        else if (sous_menu_actuel == 4)
+        { // Sous-menu "Durée alarme"
+          if (sous_choix_select == 0)
+          {
+            duree_snooze = 1; // 1 minute
+          }
+          else if (sous_choix_select == 1)
+          {
+            duree_snooze = 2; // 2 minutes
           }
         }
         else if (sous_menu_actuel == 2)

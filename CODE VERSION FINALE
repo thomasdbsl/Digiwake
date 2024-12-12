@@ -1,7 +1,6 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <U8glib.h>
-#include <Adafruit_SSD1306.h>
 #include <LedControl.h>
 #include <RTClib.h>
 #include <EEPROM.h>

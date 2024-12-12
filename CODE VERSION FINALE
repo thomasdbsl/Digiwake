@@ -537,7 +537,7 @@ void loop()
           }
           else if (sous_choix_select == 1)
           {
-            duree_snooze = 2; // 2 minutes
+            duree_snooze = 5; // 5 minutes
           }
         }
         else if (sous_menu_actuel == 2)

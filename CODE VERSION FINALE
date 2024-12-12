@@ -113,7 +113,7 @@ char sous_menu_0[][taille] = {{"Modif. heure"}};                     // sous cho
 char sous_menu_1[][taille] = {{"Melodie 1"}, {"Melodie 2"}};         // sous choix sonnerie
 char sous_menu_2[][taille] = {{"Activer"}, {"Desactiver"}};          // sous choix reveil
 char sous_menu_3[][taille] = {{"Modif. reveil"}};                    // sous choix heure réveil
-char sous_menu_4[][taille] = {{"Snooze = 1min"}, {"Snooze = 2min"}}; // sous choix durée réveil
+char sous_menu_4[][taille] = {{"Snooze = 1min"}, {"Snooze = 5min"}}; // sous choix durée réveil
 char sous_menu_5[][taille] = {{"Format 12h"}, {"Format 24h"}};       // sous choix format
 
 char *sous_menus[] = {(char *)sous_menu_0, (char *)sous_menu_1, (char *)sous_menu_2,
